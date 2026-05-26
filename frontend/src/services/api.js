@@ -1,4 +1,10 @@
-const BASE = import.meta.env.VITE_API_URL || '/api';
+// Get API base URL from environment, or construct from backend URL
+const VITE_API_URL = import.meta.env.VITE_API_URL;
+const BASE = VITE_API_URL 
+  ? (VITE_API_URL.endsWith('/api') ? VITE_API_URL : `${VITE_API_URL}/api`)
+  : '/api';
+
+console.log('[API] Using BASE URL:', BASE);
 
 function getToken() {
   return localStorage.getItem('access_token');
@@ -16,7 +22,10 @@ async function request(path, options = {}) {
     headers['Content-Type'] = 'application/json';
   }
 
-  const res = await fetch(`${BASE}${path}`, { ...options, headers });
+  const url = `${BASE}${path}`;
+  console.log('[API Request]', options.method || 'GET', url);
+  
+  const res = await fetch(url, { ...options, headers });
 
   // Only redirect on 401 if we actually had a token (genuine session expiry)
   if (res.status === 401 && token) {
@@ -25,10 +34,17 @@ async function request(path, options = {}) {
     return;
   }
 
-  const data = await res.json().catch(() => ({}));
+  let data = {};
+  try {
+    data = await res.json();
+  } catch (e) {
+    // Response is not JSON (e.g., 404 HTML)
+    data = { detail: `HTTP ${res.status}: ${res.statusText}` };
+  }
 
   if (!res.ok) {
-    const err = new Error(data.detail || data.error || 'Request failed');
+    console.error('[API Error]', res.status, data);
+    const err = new Error(data.detail || data.error || `Request failed (${res.status})`);
     err.data = data;
     err.status = res.status;
     throw err;
