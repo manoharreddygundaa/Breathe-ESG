@@ -72,7 +72,6 @@ class ReviewActionSerializer(serializers.Serializer):
     quantity = serializers.DecimalField(max_digits=14, decimal_places=4, required=False)
     unit = serializers.CharField(max_length=20, required=False)
     activity_date = serializers.DateField(required=False)
-    analyst_note = serializers.CharField(required=False, allow_blank=True)
 
 
 class AuditLogSerializer(serializers.ModelSerializer):
