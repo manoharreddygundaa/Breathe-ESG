@@ -2,7 +2,6 @@ services:
   - type: web
     name: breathe-esg
     env: python
-    plan: free
     buildCommand: "cd backend && pip install -r requirements.txt && python manage.py migrate && python manage.py seed_demo"
     startCommand: "cd backend && gunicorn breathe.wsgi:application"
     envVars:

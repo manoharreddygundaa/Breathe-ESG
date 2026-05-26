@@ -5,10 +5,9 @@ from emissions.models import Company, UserProfile
 
 
 class Command(BaseCommand):
-    help = 'Create demo company and analyst user'
+    help = 'Create demo company and analyst user if they do not exist'
 
     def handle(self, *args, **options):
-
         company, _ = Company.objects.get_or_create(
             slug='acme-corp',
             defaults={
@@ -16,8 +15,14 @@ class Command(BaseCommand):
             }
         )
 
-        # Delete old analyst user if exists
-        User.objects.filter(username='analyst').delete()
+        # Only create if analyst doesn't exist
+        if User.objects.filter(username='analyst').exists():
+            self.stdout.write(
+                self.style.SUCCESS(
+                    'Demo user already exists: analyst / password123'
+                )
+            )
+            return
 
         # Create fresh user
         user = User.objects.create_user(
