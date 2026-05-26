@@ -24,6 +24,16 @@ from .parsers import parse_csv
 @permission_classes([IsAuthenticated])
 def me(request):
     """Returns the logged-in user with their company context."""
+    # Ensure UserProfile exists
+    if not hasattr(request.user, 'profile'):
+        company, _ = Company.objects.get_or_create(
+            slug='acme-corp',
+            defaults={'name': 'Acme Corporation'}
+        )
+        UserProfile.objects.get_or_create(
+            user=request.user,
+            defaults={'company': company}
+        )
     return Response(UserSerializer(request.user).data)
 
 
@@ -31,6 +41,16 @@ class DashboardStats(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
+        # Ensure UserProfile exists
+        if not hasattr(request.user, 'profile'):
+            company, _ = Company.objects.get_or_create(
+                slug='acme-corp',
+                defaults={'name': 'Acme Corporation'}
+            )
+            UserProfile.objects.get_or_create(
+                user=request.user,
+                defaults={'company': company}
+            )
         company = request.user.profile.company
         qs = EmissionRecord.objects.filter(company=company)
 
@@ -74,6 +94,16 @@ class UploadCSV(APIView):
         if source_type not in ('sap_fuel', 'utility', 'travel'):
             return Response({'error': 'Invalid source_type.'}, status=400)
 
+        # Ensure UserProfile exists
+        if not hasattr(request.user, 'profile'):
+            company, _ = Company.objects.get_or_create(
+                slug='acme-corp',
+                defaults={'name': 'Acme Corporation'}
+            )
+            UserProfile.objects.get_or_create(
+                user=request.user,
+                defaults={'company': company}
+            )
         company = request.user.profile.company
 
         try:
@@ -151,6 +181,16 @@ class DataSourceList(generics.ListAPIView):
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
+        # Ensure UserProfile exists
+        if not hasattr(self.request.user, 'profile'):
+            company, _ = Company.objects.get_or_create(
+                slug='acme-corp',
+                defaults={'name': 'Acme Corporation'}
+            )
+            UserProfile.objects.get_or_create(
+                user=self.request.user,
+                defaults={'company': company}
+            )
         return DataSource.objects.filter(
             company=self.request.user.profile.company
         ).order_by('-uploaded_at')
@@ -161,6 +201,16 @@ class EmissionRecordList(generics.ListAPIView):
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
+        # Ensure UserProfile exists
+        if not hasattr(self.request.user, 'profile'):
+            company, _ = Company.objects.get_or_create(
+                slug='acme-corp',
+                defaults={'name': 'Acme Corporation'}
+            )
+            UserProfile.objects.get_or_create(
+                user=self.request.user,
+                defaults={'company': company}
+            )
         company = self.request.user.profile.company
         qs = EmissionRecord.objects.filter(company=company)
 
