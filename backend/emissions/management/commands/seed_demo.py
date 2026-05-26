@@ -5,7 +5,7 @@ from emissions.models import Company, UserProfile
 
 
 class Command(BaseCommand):
-    help = 'Create demo company and analyst user if they do not exist'
+    help = 'Create demo company and analyst user with properly hashed password'
 
     def handle(self, *args, **options):
         company, _ = Company.objects.get_or_create(
@@ -15,34 +15,36 @@ class Command(BaseCommand):
             }
         )
 
-        # Only create if analyst doesn't exist
-        if User.objects.filter(username='analyst').exists():
-            self.stdout.write(
-                self.style.SUCCESS(
-                    'Demo user already exists: analyst / password123'
-                )
-            )
-            return
-
-        # Create fresh user
-        user = User.objects.create_user(
+        # Get or create user with empty defaults
+        user, created = User.objects.get_or_create(
             username='analyst',
-            password='password123',
-            email='analyst@acme.com',
-            first_name='Demo',
-            last_name='Analyst',
+            defaults={
+                'email': 'analyst@acme.com',
+                'first_name': 'Demo',
+                'last_name': 'Analyst',
+            }
         )
 
+        # Properly hash and set password
+        user.set_password('password123')
         user.is_staff = True
         user.save()
 
+        # Ensure UserProfile exists
         UserProfile.objects.get_or_create(
             user=user,
             defaults={'company': company}
         )
 
-        self.stdout.write(
-            self.style.SUCCESS(
-                'Demo user created: analyst / password123'
+        if created:
+            self.stdout.write(
+                self.style.SUCCESS(
+                    'Demo user created: analyst / password123'
+                )
             )
-        )
+        else:
+            self.stdout.write(
+                self.style.SUCCESS(
+                    'Demo user updated with hashed password: analyst / password123'
+                )
+            )
