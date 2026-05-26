@@ -31,7 +31,19 @@ class DashboardStats(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        company = request.user.profile.company
+        try:
+            company = request.user.profile.company
+        except Exception as e:
+            # UserProfile doesn't exist — create it
+            company, _ = Company.objects.get_or_create(
+                slug='acme-corp',
+                defaults={'name': 'Acme Corporation'}
+            )
+            UserProfile.objects.get_or_create(
+                user=request.user,
+                defaults={'company': company}
+            )
+        
         qs = EmissionRecord.objects.filter(company=company)
 
         total = qs.count()
@@ -65,85 +77,100 @@ class UploadCSV(APIView):
     permission_classes = [IsAuthenticated]
 
     def post(self, request):
-        file = request.FILES.get('file')
-        source_type = request.data.get('source_type')
-
-        if not file:
-            return Response({'error': 'No file uploaded.'}, status=400)
-
-        if source_type not in ('sap_fuel', 'utility', 'travel'):
-            return Response({'error': 'Invalid source_type.'}, status=400)
-
-        company = request.user.profile.company
-
         try:
-            parsed_rows = parse_csv(file, source_type)
-        except Exception as e:
-            return Response({'error': f'Could not parse CSV: {str(e)}'}, status=400)
+            file = request.FILES.get('file')
+            source_type = request.data.get('source_type')
 
-        with transaction.atomic():
-            data_source = DataSource.objects.create(
-                company=company,
-                uploaded_by=request.user,
-                source_type=source_type,
-                filename=file.name,
-                row_count=len(parsed_rows),
-            )
+            if not file:
+                return Response({'error': 'No file uploaded.'}, status=400)
 
-            records_to_create = []
-            failed_count = 0
-            suspicious_count = 0
+            if source_type not in ('sap_fuel', 'utility', 'travel'):
+                return Response({'error': 'Invalid source_type.'}, status=400)
 
-            for row in parsed_rows:
-                flag = row.get('flag', 'ok')
-                normalized = row.get('normalized')
+            # Try to get company — create default if needed
+            try:
+                company = request.user.profile.company
+            except Exception as e:
+                # UserProfile doesn't exist — create it
+                company, _ = Company.objects.get_or_create(
+                    slug='acme-corp',
+                    defaults={'name': 'Acme Corporation'}
+                )
+                UserProfile.objects.get_or_create(
+                    user=request.user,
+                    defaults={'company': company}
+                )
 
-                # Skip rows that failed parsing — no valid data to insert.
-                # failed_count still tracks them for the summary response.
-                if flag == 'failed' or normalized is None:
-                    failed_count += 1
-                    continue
+            try:
+                parsed_rows = parse_csv(file, source_type)
+            except Exception as e:
+                return Response({'error': f'Could not parse CSV: {str(e)}'}, status=400)
 
-                if flag == 'suspicious':
-                    suspicious_count += 1
-
-                records_to_create.append(EmissionRecord(
+            with transaction.atomic():
+                data_source = DataSource.objects.create(
                     company=company,
+                    uploaded_by=request.user,
+                    source_type=source_type,
+                    filename=file.name,
+                    row_count=len(parsed_rows),
+                )
+
+                records_to_create = []
+                failed_count = 0
+                suspicious_count = 0
+
+                for row in parsed_rows:
+                    flag = row.get('flag', 'ok')
+                    normalized = row.get('normalized')
+
+                    # Skip rows that failed parsing — no valid data to insert.
+                    # failed_count still tracks them for the summary response.
+                    if flag == 'failed' or normalized is None:
+                        failed_count += 1
+                        continue
+
+                    if flag == 'suspicious':
+                        suspicious_count += 1
+
+                    records_to_create.append(EmissionRecord(
+                        company=company,
+                        data_source=data_source,
+                        source_row_index=row.get('row_index', 0),
+                        scope=normalized.get('scope', 'scope3'),
+                        activity_type=normalized.get('activity_type', 'unknown'),
+                        quantity=normalized.get('quantity', 0),
+                        unit=normalized.get('unit', ''),
+                        activity_date=normalized.get('activity_date'),
+                        location=normalized.get('location', ''),
+                        description=normalized.get('description', ''),
+                        raw_data=row.get('raw', {}),
+                        status='pending_review',
+                        flag=flag,
+                        flag_reason=row.get('flag_reason', ''),
+                    ))
+
+                EmissionRecord.objects.bulk_create(records_to_create)
+
+                data_source.failed_count = failed_count
+                data_source.suspicious_count = suspicious_count
+                data_source.save()
+
+                AuditLog.objects.create(
                     data_source=data_source,
-                    source_row_index=row.get('row_index', 0),
-                    scope=normalized.get('scope', 'scope3'),
-                    activity_type=normalized.get('activity_type', 'unknown'),
-                    quantity=normalized.get('quantity', 0),
-                    unit=normalized.get('unit', ''),
-                    activity_date=normalized.get('activity_date'),
-                    location=normalized.get('location', ''),
-                    description=normalized.get('description', ''),
-                    raw_data=row.get('raw', {}),
-                    status='pending_review',
-                    flag=flag,
-                    flag_reason=row.get('flag_reason', ''),
-                ))
+                    actor=request.user,
+                    action='uploaded',
+                    detail=f"Uploaded {len(parsed_rows)} rows: {failed_count} failed, {suspicious_count} suspicious",
+                )
 
-            EmissionRecord.objects.bulk_create(records_to_create)
-
-            data_source.failed_count = failed_count
-            data_source.suspicious_count = suspicious_count
-            data_source.save()
-
-            AuditLog.objects.create(
-                data_source=data_source,
-                actor=request.user,
-                action='uploaded',
-                detail=f"Uploaded {len(parsed_rows)} rows: {failed_count} failed, {suspicious_count} suspicious",
-            )
-
-        return Response({
-            'data_source_id': data_source.id,
-            'total_rows': len(parsed_rows),
-            'pending_review': len(records_to_create),
-            'failed': failed_count,
-            'suspicious': suspicious_count,
-        }, status=201)
+            return Response({
+                'data_source_id': data_source.id,
+                'total_rows': len(parsed_rows),
+                'pending_review': len(records_to_create),
+                'failed': failed_count,
+                'suspicious': suspicious_count,
+            }, status=201)
+        except Exception as e:
+            return Response({'error': f'Upload error: {str(e)}'}, status=500)
 
 
 class DataSourceList(generics.ListAPIView):
@@ -151,8 +178,20 @@ class DataSourceList(generics.ListAPIView):
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
+        try:
+            company = self.request.user.profile.company
+        except Exception as e:
+            # UserProfile doesn't exist — create it
+            company, _ = Company.objects.get_or_create(
+                slug='acme-corp',
+                defaults={'name': 'Acme Corporation'}
+            )
+            UserProfile.objects.get_or_create(
+                user=self.request.user,
+                defaults={'company': company}
+            )
         return DataSource.objects.filter(
-            company=self.request.user.profile.company
+            company=company
         ).order_by('-uploaded_at')
 
 
@@ -161,7 +200,19 @@ class EmissionRecordList(generics.ListAPIView):
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
-        company = self.request.user.profile.company
+        try:
+            company = self.request.user.profile.company
+        except Exception as e:
+            # UserProfile doesn't exist — create it
+            company, _ = Company.objects.get_or_create(
+                slug='acme-corp',
+                defaults={'name': 'Acme Corporation'}
+            )
+            UserProfile.objects.get_or_create(
+                user=self.request.user,
+                defaults={'company': company}
+            )
+        qs = EmissionRecord.objects.filter(company=company)
         qs = EmissionRecord.objects.filter(company=company)
 
         status_filter = self.request.query_params.get('status')
