@@ -1,0 +1,12 @@
+Employee,Departure,Arrival,Travel_Type,Travel_Date,Distance_km
+Rahul Sharma,HYD,DEL,Flight,2026-03-10,1250
+Priya Singh,BLR,BOM,Flight,2026-03-11,980
+David Chen,LHR,JFK,Flight,2026-03-12,5500
+Ananya Kumar,HYD,BOM,Train,2026-03-13,710
+Rahul Sharma,DEL,HYD,Flight,2026-03-14,1250
+Priya Singh,BOM,BLR,Cab,2026-03-11,35
+David Chen,JFK,LHR,Flight,2026-03-19,5500
+Ananya Kumar,HYD,,Hotel,2026-03-15,
+Rahul Sharma,XYZ,ABC,Flight,2026-03-16,800
+,DEL,BOM,Flight,2026-03-17,1150
+Priya Singh,BLR,MAA,UNKNOWN_TYPE,2026-03-18,330
