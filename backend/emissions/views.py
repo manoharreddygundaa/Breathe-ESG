@@ -7,7 +7,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from .models import DataSource, EmissionRecord, AuditLog
+from .models import Company, DataSource, EmissionRecord, AuditLog
 from .serializers import (
     UserSerializer,
     DataSourceSerializer,
