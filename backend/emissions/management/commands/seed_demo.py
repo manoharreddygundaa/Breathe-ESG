@@ -1,8 +1,3 @@
-"""
-Creates a demo company and analyst user.
-Run: python manage.py seed_demo
-"""
-
 from django.core.management.base import BaseCommand
 from django.contrib.auth.models import User
 
@@ -21,17 +16,18 @@ class Command(BaseCommand):
             }
         )
 
-        user, created = User.objects.get_or_create(
+        # Delete old analyst user if exists
+        User.objects.filter(username='analyst').delete()
+
+        # Create fresh user
+        user = User.objects.create_user(
             username='analyst',
-            defaults={
-                'email': 'analyst@acme.com',
-                'first_name': 'Demo',
-                'last_name': 'Analyst',
-            }
+            password='password123',
+            email='analyst@acme.com',
+            first_name='Demo',
+            last_name='Analyst',
         )
 
-        # Always reset password
-        user.set_password('password123')
         user.is_staff = True
         user.save()
 
@@ -42,6 +38,6 @@ class Command(BaseCommand):
 
         self.stdout.write(
             self.style.SUCCESS(
-                f'Demo user ready: analyst / password123 (company: {company.name})'
+                'Demo user created: analyst / password123'
             )
         )
