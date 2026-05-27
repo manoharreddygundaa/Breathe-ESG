@@ -9,9 +9,9 @@ class Command(BaseCommand):
 
     def handle(self, *args, **options):
         company, _ = Company.objects.get_or_create(
-            slug='acme-corp',
+            slug='breathe-esg',
             defaults={
-                'name': 'Acme Corporation'
+                'name': 'Breathe ESG'
             }
         )
 

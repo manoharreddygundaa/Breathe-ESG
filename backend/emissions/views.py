@@ -36,8 +36,8 @@ class DashboardStats(APIView):
         except Exception as e:
             # UserProfile doesn't exist — create it
             company, _ = Company.objects.get_or_create(
-                slug='acme-corp',
-                defaults={'name': 'Acme Corporation'}
+                slug='breathe-esg',
+                defaults={'name': 'Breathe ESG'}
             )
             UserProfile.objects.get_or_create(
                 user=request.user,
@@ -93,8 +93,8 @@ class UploadCSV(APIView):
             except Exception as e:
                 # UserProfile doesn't exist — create it
                 company, _ = Company.objects.get_or_create(
-                    slug='acme-corp',
-                    defaults={'name': 'Acme Corporation'}
+                    slug='breathe-esg',
+                    defaults={'name': 'Breathe ESG'}
                 )
                 UserProfile.objects.get_or_create(
                     user=request.user,
@@ -183,8 +183,8 @@ class DataSourceList(generics.ListAPIView):
         except Exception as e:
             # UserProfile doesn't exist — create it
             company, _ = Company.objects.get_or_create(
-                slug='acme-corp',
-                defaults={'name': 'Acme Corporation'}
+                slug='breathe-esg',
+                defaults={'name': 'Breathe ESG'}
             )
             UserProfile.objects.get_or_create(
                 user=self.request.user,
@@ -205,8 +205,8 @@ class EmissionRecordList(generics.ListAPIView):
         except Exception as e:
             # UserProfile doesn't exist — create it
             company, _ = Company.objects.get_or_create(
-                slug='acme-corp',
-                defaults={'name': 'Acme Corporation'}
+                slug='breathe-esg',
+                defaults={'name': 'Breathe ESG'}
             )
             UserProfile.objects.get_or_create(
                 user=self.request.user,
