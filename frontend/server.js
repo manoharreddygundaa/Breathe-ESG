@@ -1,22 +1,58 @@
-import express from 'express';
+import http from 'http';
+import fs from 'fs';
+import path from 'path';
 import { fileURLToPath } from 'url';
-import { dirname, join } from 'path';
 
 const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
+const __dirname = path.dirname(__filename);
 
-const app = express();
 const PORT = process.env.PORT || 3000;
+const distDir = path.join(__dirname, 'dist');
 
-// Serve static files from the dist directory
-app.use(express.static(join(__dirname, 'dist')));
+const server = http.createServer((req, res) => {
+  let filePath = path.join(distDir, req.url === '/' ? 'index.html' : req.url);
 
-// SPA fallback - serve index.html for all non-file routes
-app.get('*', (req, res) => {
-  res.sendFile(join(__dirname, 'dist', 'index.html'));
+  // If file doesn't exist and it's not a file request (no extension), serve index.html
+  if (!fs.existsSync(filePath) && !path.extname(req.url)) {
+    filePath = path.join(distDir, 'index.html');
+  }
+
+  // Prevent directory traversal
+  if (!filePath.startsWith(distDir)) {
+    res.writeHead(403);
+    res.end('Forbidden');
+    return;
+  }
+
+  fs.readFile(filePath, (err, content) => {
+    if (err) {
+      res.writeHead(404);
+      res.end('Not Found');
+      return;
+    }
+
+    // Set content type
+    const ext = path.extname(filePath);
+    const contentTypes = {
+      '.html': 'text/html',
+      '.js': 'application/javascript',
+      '.css': 'text/css',
+      '.json': 'application/json',
+      '.png': 'image/png',
+      '.jpg': 'image/jpeg',
+      '.svg': 'image/svg+xml',
+    };
+
+    res.writeHead(200, {
+      'Content-Type': contentTypes[ext] || 'application/octet-stream',
+      'Cache-Control': ext === '.html' ? 'no-cache' : 'public, max-age=3600',
+    });
+    res.end(content);
+  });
 });
 
-app.listen(PORT, () => {
-  console.log(`[Server] Frontend running on port ${PORT}`);
-  console.log(`[Server] Serving static files from ${join(__dirname, 'dist')}`);
+server.listen(PORT, () => {
+  console.log(`[SPA Server] Running on http://localhost:${PORT}`);
+  console.log(`[SPA Server] Serving from ${distDir}`);
 });
+
